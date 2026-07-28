@@ -32,15 +32,31 @@ type
 {$SCOPEDENUMS OFF}
 
 type
-  { Marks a method as an MCP tool }
+  { Marks a method as an MCP tool.
+    ATitle/AReadOnlyHint/ADestructiveHint/AOpenWorldHint are optional MCP tool
+    annotations (ref: https://modelcontextprotocol.io/specification/2025-03-26/server/tools).
+    They are omitted from tools/list output unless explicitly provided, so
+    existing 2-argument Create calls are unaffected. }
   MCPToolAttribute = class(TCustomAttribute)
   private
     FName: string;
     FDescription: string;
+    FTitle: string;
+    FReadOnlyHint: Boolean;
+    FDestructiveHint: Boolean;
+    FOpenWorldHint: Boolean;
   public
-    constructor Create(const AName, ADescription: string);
+    constructor Create(const AName, ADescription: string;
+      const ATitle: string = '';
+      const AReadOnlyHint: Boolean = False;
+      const ADestructiveHint: Boolean = False;
+      const AOpenWorldHint: Boolean = False);
     property Name: string read FName;
     property Description: string read FDescription;
+    property Title: string read FTitle;
+    property ReadOnlyHint: Boolean read FReadOnlyHint;
+    property DestructiveHint: Boolean read FDestructiveHint;
+    property OpenWorldHint: Boolean read FOpenWorldHint;
   end;
 
   { Placed on a method parameter to provide its MCP description and required flag.
@@ -98,11 +114,16 @@ implementation
 
 { MCPToolAttribute }
 
-constructor MCPToolAttribute.Create(const AName, ADescription: string);
+constructor MCPToolAttribute.Create(const AName, ADescription: string;
+  const ATitle: string; const AReadOnlyHint, ADestructiveHint, AOpenWorldHint: Boolean);
 begin
   inherited Create;
   FName := AName;
   FDescription := ADescription;
+  FTitle := ATitle;
+  FReadOnlyHint := AReadOnlyHint;
+  FDestructiveHint := ADestructiveHint;
+  FOpenWorldHint := AOpenWorldHint;
 end;
 
 { MCPParamAttribute }

@@ -155,12 +155,19 @@ type
     JsonSchemaType: string;
   end;
 
-  { Tool descriptor for dynamically-registered tools (no RTTI method). }
+  { Tool descriptor for dynamically-registered tools (no RTTI method).
+    Title/ReadOnlyHint/DestructiveHint/OpenWorldHint are optional MCP tool
+    annotations, mirroring MCPToolAttribute; left at defaults they emit no
+    annotations object in tools/list. }
   TMCPDynamicToolDef = record
     Name: string;
     Description: string;
     ControllerClassName: string; // for code-gen grouping
     Params: TArray<TMCPDynamicParamDef>;
+    Title: string;
+    ReadOnlyHint: Boolean;
+    DestructiveHint: Boolean;
+    OpenWorldHint: Boolean;
   end;
 
   TMCPToolProvider = class

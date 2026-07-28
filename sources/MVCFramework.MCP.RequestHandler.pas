@@ -274,17 +274,36 @@ var
   LToolsArray: TJDOJsonArray;
   LToolInfo: TMCPToolInfo;
   LToolObj: TJDOJsonObject;
+  LAnnotations: TJDOJsonObject;
 begin
   LServer := TMCPServer(FServer);
   Result := TJDOJsonObject.Create;
   LToolsArray := Result.A['tools'];
   for LToolInfo in LServer.Tools.Values do
   begin
+    { Discovery-time visibility filter (RBAC/multi-tenant). Execution-time
+      enforcement of disallowed tools remains the host's responsibility. }
+    if Assigned(LServer.ToolFilter) and not LServer.ToolFilter(LToolInfo) then
+      Continue;
+
     LToolObj := LToolsArray.AddObject;
     LToolObj.S['name'] := LToolInfo.Name;
     LToolObj.S['description'] := LToolInfo.Description;
     LToolObj.O['inputSchema'] :=
       TJDOJsonObject.Parse(LToolInfo.InputSchema.ToJSON(False)) as TJDOJsonObject;
+
+    if LToolInfo.HasAnnotations then
+    begin
+      LAnnotations := LToolObj.O['annotations'];
+      if not LToolInfo.Title.IsEmpty then
+        LAnnotations.S['title'] := LToolInfo.Title;
+      if LToolInfo.ReadOnlyHint then
+        LAnnotations.B['readOnlyHint'] := True;
+      if LToolInfo.DestructiveHint then
+        LAnnotations.B['destructiveHint'] := True;
+      if LToolInfo.OpenWorldHint then
+        LAnnotations.B['openWorldHint'] := True;
+    end;
   end;
 end;
 

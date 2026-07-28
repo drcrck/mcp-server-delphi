@@ -58,8 +58,23 @@ type
       HandlerInstance.InvokeDynamic instead of RTTI dispatch. Not owned here —
       ownership is in TMCPServer.FDynamicProviders. }
     HandlerInstance: TMCPToolProvider;
+    { Optional MCP tool annotations (ref: MCP spec 2025-03-26, server/tools).
+      Left at defaults (empty Title, all hints False) for tools declared
+      without them — HasAnnotations then reports False and DoToolsList emits
+      no "annotations" object, preserving prior wire format. }
+    Title: string;
+    ReadOnlyHint: Boolean;
+    DestructiveHint: Boolean;
+    OpenWorldHint: Boolean;
+    function HasAnnotations: Boolean;
     destructor Destroy; override;
   end;
+
+  { Optional per-request tool visibility filter. Return False to hide a tool
+    from tools/list output; execution-time enforcement (tools/call) is left
+    to the host application. Assigned on TMCPServer.ToolFilter; nil (default)
+    lists every registered tool as before. }
+  TMCPToolFilterProc = reference to function(const AToolInfo: TMCPToolInfo): Boolean;
 
   (* Cached resource descriptor.
      A resource is either:
@@ -127,6 +142,7 @@ type
     FPrompts: TObjectDictionary<string, TMCPPromptInfo>;
     FRttiContext: TRttiContext;
     FDynamicProviders: TObjectList<TMCPToolProvider>;
+    FToolFilter: TMCPToolFilterProc;
 
     procedure ScanToolProvider(AProviderClass: TMCPToolProviderClass);
     procedure ScanResourceProvider(AProviderClass: TMCPResourceProviderClass);
@@ -165,6 +181,12 @@ type
     property Prompts: TObjectDictionary<string, TMCPPromptInfo> read FPrompts;
     { Read-only access to dynamic providers — used by TMCPBridgeCodeGen. }
     property DynamicProviders: TObjectList<TMCPToolProvider> read FDynamicProviders;
+    { Optional visibility filter applied by DoToolsList. Nil (default) lists
+      every registered tool, unchanged from prior behavior. Set to implement
+      per-caller/RBAC-aware tool discovery; the callback itself is
+      responsible for resolving caller identity (e.g. via a value captured
+      from the current request context before assignment). }
+    property ToolFilter: TMCPToolFilterProc read FToolFilter write FToolFilter;
   end;
 
   { -----------------------------------------------------------------------
@@ -228,6 +250,11 @@ uses
   MVCFramework.Logger;
 
 { TMCPToolInfo }
+
+function TMCPToolInfo.HasAnnotations: Boolean;
+begin
+  Result := (not Title.IsEmpty) or ReadOnlyHint or DestructiveHint or OpenWorldHint;
+end;
 
 destructor TMCPToolInfo.Destroy;
 begin
@@ -330,6 +357,10 @@ begin
       LToolInfo.ProviderClass := nil;
       LToolInfo.RttiMethod := nil;
       LToolInfo.HandlerInstance := AProvider;
+      LToolInfo.Title := LDef.Title;
+      LToolInfo.ReadOnlyHint := LDef.ReadOnlyHint;
+      LToolInfo.DestructiveHint := LDef.DestructiveHint;
+      LToolInfo.OpenWorldHint := LDef.OpenWorldHint;
 
       SetLength(LToolInfo.Params, Length(LDef.Params));
       for I := 0 to High(LDef.Params) do
@@ -441,6 +472,10 @@ begin
       LToolInfo.Description := LToolAttr.Description;
       LToolInfo.ProviderClass := AProviderClass;
       LToolInfo.RttiMethod := LMethod;
+      LToolInfo.Title := LToolAttr.Title;
+      LToolInfo.ReadOnlyHint := LToolAttr.ReadOnlyHint;
+      LToolInfo.DestructiveHint := LToolAttr.DestructiveHint;
+      LToolInfo.OpenWorldHint := LToolAttr.OpenWorldHint;
 
       LRttiParams := LMethod.GetParameters;
       SetLength(LToolInfo.Params, Length(LRttiParams));
